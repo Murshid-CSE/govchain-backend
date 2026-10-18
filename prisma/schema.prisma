@@ -172,7 +172,6 @@ model Issue {
   duplicates   IssueDuplicate[] @relation("DuplicateParent")
   tasks        Task[]
   moderationDecisions ModerationDecision[]
-  auditEvents  AuditEvent[]
 
   @@index([status, createdAt])
   @@index([category])
@@ -602,7 +601,6 @@ model AuditEvent {
   hash       String   @db.VarChar(64)
 
   user       User?    @relation(fields: [userId], references: [id])
-  issue      Issue?   @relation(fields: [entityId], references: [id], map: "audit_events_issue_fk")
 
   @@index([entityType, entityId])
   @@index([timestamp])

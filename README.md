@@ -14,7 +14,13 @@
 
 ## Architecture & Technology Stack
 
-- **Runtime & Web Framework**: Node.js LTS with Express 5
+- **Frontend Client (`client/`)**:
+  - React 19 SPA with TypeScript & Vite
+  - Tailwind CSS v4 styling & Lucide icons
+  - Interactive Leaflet mapping with OpenStreetMap tiles
+  - Bilingual localization (English & Tamil / தமிழ்)
+  - Role-aware dashboards (Citizen vs. Official task queues)
+- **Backend Runtime & Web Framework**: Node.js LTS with Express 5
 - **Database & Data Modeling**: PostgreSQL with Prisma ORM
 - **Authentication & Security**:
   - `bcryptjs` for salted password hashing (10 rounds)
@@ -97,24 +103,44 @@ Default seeded accounts for local exploration:
 | **Moderator** | `moderator@govchain.local` | `GovChain@2026` | Content review queue, duplicate linking |
 | **Citizen** | `citizen@govchain.local` | `GovChain@2026` | Issue reporting, tracking, voting, comments |
 
-### 6. Start the Server
+### 6. Start the Applications
+
+#### Backend API
 Development mode with automatic reload:
 ```bash
 npm run dev
 ```
-Production mode:
+Runs at `http://localhost:5000` (`/api/v1`).
+
+#### Frontend Web Portal
+In a separate terminal:
 ```bash
-npm start
+npm run client:dev
+```
+Or from within the `client/` directory:
+```bash
+cd client
+npm run dev
+```
+Launches at `http://localhost:5173` with Vite HMR and automatic API proxying.
+
+To build the frontend for production:
+```bash
+npm run build
 ```
 
 ---
 
-## Running the Automated Test Suite
+## Running the Automated Test Suites
 
-GovChain uses Node.js's native test runner with zero third-party testing runner overhead:
+GovChain uses Node.js's native test runner (`node --test`) for fast, zero-dependency testing:
 
 ```bash
+# Run backend tests
 npm test
+
+# Run full end-to-end suite (backend + frontend integration)
+npm run test:all
 ```
 
 Test coverage includes:
@@ -122,6 +148,8 @@ Test coverage includes:
 - **AI Civic Chat Intake Suite**: Natural language classification, explainable priority heuristics, safety risk classification
 - **Cryptographic Hash Chain Suite**: SHA-256 calculation, chronological chain linkage, anti-tamper modification detection
 - **Tracking Reference Suite**: Sequential formatted tracking tokens (`ISS-2026-XXXXX`, `GRV-2026-XXXXX`)
+- **Database Integration Suite**: Live PostgreSQL operations across issues, tasks, tenders, budgets, and polls
+- **Frontend Contract & Unit Suites**: Form validation, Indian rupee paise conversion, bilingual dictionaries, and live API e2e integration
 
 ---
 

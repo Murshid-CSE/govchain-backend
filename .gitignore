@@ -20,3 +20,6 @@ npm-debug.log*
 # Test output
 coverage/
 .nyc_output/
+
+# Local PostgreSQL data
+.pgdata/

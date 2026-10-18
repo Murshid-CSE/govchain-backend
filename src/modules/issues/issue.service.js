@@ -1,6 +1,6 @@
 const { prisma } = require('../../config/database');
 const { generateTrackingId } = require('../../utils/trackingId');
-const { buildPaginationMeta } = require('../../utils/pagination');
+const { parsePagination, buildPaginationMeta } = require('../../utils/pagination');
 const { recordAuditEvent } = require('../../middleware/auditLogger');
 
 async function createIssue(data, userId, ipAddress = null) {
@@ -42,8 +42,8 @@ async function createIssue(data, userId, ipAddress = null) {
 }
 
 async function listPublicIssues(filters = {}) {
-  const { page = 1, limit = 20, status, category, departmentId, search, ward } = filters;
-  const skip = (page - 1) * limit;
+  const { page, limit, skip } = parsePagination(filters);
+  const { status, category, departmentId, search, ward } = filters;
 
   const where = {
     isPublic: true,
@@ -295,8 +295,7 @@ async function unfollowIssue(issueId, userId) {
 }
 
 async function getMyIssues(userId, filters = {}) {
-  const { page = 1, limit = 20 } = filters;
-  const skip = (page - 1) * limit;
+  const { page, limit, skip } = parsePagination(filters);
 
   const [total, issues] = await Promise.all([
     prisma.issue.count({ where: { citizenId: userId } }),
