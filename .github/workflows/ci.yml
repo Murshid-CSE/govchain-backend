@@ -1,0 +1,46 @@
+name: GovChain CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: govchain_user
+          POSTGRES_PASSWORD: govchain_dev_password
+          POSTGRES_DB: govchain_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run test suite
+        env:
+          DATABASE_URL: postgresql://govchain_user:govchain_dev_password@localhost:5432/govchain_test?schema=public
+          JWT_SECRET: ci_secret_key_govchain_test_environment_32_chars_long
+          NODE_ENV: test
+        run: npm test

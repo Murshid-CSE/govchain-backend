@@ -1,0 +1,610 @@
+// GovChain — Prisma Schema
+// PostgreSQL database for civic transparency platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// AUTHENTICATION & USERS
+// ============================================
+
+enum UserRole {
+  citizen
+  moderator
+  official
+  admin
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  name         String   @db.VarChar(100)
+  phone        String?  @db.VarChar(20)
+  role         UserRole @default(citizen)
+  departmentId String?  @map("department_id") @db.Uuid
+  isVerified   Boolean  @default(false) @map("is_verified")
+  avatarUrl    String?  @map("avatar_url") @db.VarChar(500)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  department Department? @relation(fields: [departmentId], references: [id])
+
+  // Relations
+  issues           Issue[]
+  issueComments    IssueComment[]
+  issueSupports    IssueSupport[]
+  issueFollows     IssueFollow[]
+  tasks            Task[]              @relation("TaskAssignee")
+  tasksCreated     Task[]              @relation("TaskCreator")
+  taskEvents       TaskEvent[]
+  tenders          Tender[]
+  bids             TenderBid[]
+  budgetAllocations BudgetAllocation[] @relation("BudgetCreator")
+  expenditures     BudgetExpenditure[] @relation("ExpenditureCreator")
+  pollsCreated     Poll[]
+  pollVotes        PollVote[]
+  auditEvents      AuditEvent[]
+  moderationDecisions ModerationDecision[]
+  grievanceResponses  GrievanceResponse[]
+
+  @@map("users")
+}
+
+// ============================================
+// DEPARTMENTS
+// ============================================
+
+model Department {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique @db.VarChar(150)
+  slug        String   @unique @db.VarChar(150)
+  description String?  @db.Text
+  headName    String?  @map("head_name") @db.VarChar(100)
+  contactEmail String? @map("contact_email") @db.VarChar(255)
+  contactPhone String? @map("contact_phone") @db.VarChar(20)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users             User[]
+  issues            Issue[]
+  tasks             Task[]
+  tenders           Tender[]
+  budgetAllocations BudgetAllocation[]
+  grievances        Grievance[]
+
+  @@map("departments")
+}
+
+// ============================================
+// ISSUES (Citizen Reports)
+// ============================================
+
+enum IssueStatus {
+  draft
+  submitted
+  under_moderation
+  published
+  verified
+  assigned
+  in_progress
+  resolved
+  rejected
+  reopened
+  closed
+}
+
+enum IssuePriority {
+  low
+  medium
+  high
+  critical
+}
+
+enum IssueCategory {
+  road_damage
+  unsafe_construction
+  water_supply
+  drainage
+  waste_management
+  street_lights
+  transport
+  public_facilities
+  education
+  healthcare
+  environment
+  corruption
+  noise
+  encroachment
+  other
+}
+
+model Issue {
+  id           String        @id @default(uuid()) @db.Uuid
+  trackingId   String        @unique @map("tracking_id") @db.VarChar(20)
+  title        String        @db.VarChar(255)
+  description  String        @db.Text
+  category     IssueCategory
+  status       IssueStatus   @default(submitted)
+  priority     IssuePriority @default(medium)
+  
+  // Location — store approximate public coords, never exact home address
+  locationText String?       @map("location_text") @db.VarChar(500)
+  latitude     Float?
+  longitude    Float?
+  ward         String?       @db.VarChar(100)
+  
+  // Privacy
+  isPublic     Boolean       @default(true) @map("is_public")
+  
+  // AI triage
+  aiCategory     IssueCategory? @map("ai_category")
+  aiSummary      String?        @map("ai_summary") @db.Text
+  aiPriority     IssuePriority? @map("ai_priority")
+  aiExplanation  String?        @map("ai_explanation") @db.Text
+  
+  // Relations
+  citizenId    String        @map("citizen_id") @db.Uuid
+  departmentId String?       @map("department_id") @db.Uuid
+  
+  supportCount Int           @default(0) @map("support_count")
+  commentCount Int           @default(0) @map("comment_count")
+  
+  resolvedAt   DateTime?     @map("resolved_at")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  citizen      User          @relation(fields: [citizenId], references: [id])
+  department   Department?   @relation(fields: [departmentId], references: [id])
+  
+  attachments  IssueAttachment[]
+  comments     IssueComment[]
+  supports     IssueSupport[]
+  follows      IssueFollow[]
+  duplicateOf  IssueDuplicate[] @relation("DuplicateChild")
+  duplicates   IssueDuplicate[] @relation("DuplicateParent")
+  tasks        Task[]
+  moderationDecisions ModerationDecision[]
+  auditEvents  AuditEvent[]
+
+  @@index([status, createdAt])
+  @@index([category])
+  @@index([departmentId, status])
+  @@index([citizenId])
+  @@index([latitude, longitude])
+  @@map("issues")
+}
+
+model IssueAttachment {
+  id          String   @id @default(uuid()) @db.Uuid
+  issueId     String   @map("issue_id") @db.Uuid
+  filename    String   @db.VarChar(255)
+  originalName String  @map("original_name") @db.VarChar(255)
+  mimeType    String   @map("mime_type") @db.VarChar(100)
+  sizeBytes   Int      @map("size_bytes")
+  storagePath String   @map("storage_path") @db.VarChar(500)
+  isPublic    Boolean  @default(true) @map("is_public")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  issue       Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@map("issue_attachments")
+}
+
+model IssueComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  issueId   String   @map("issue_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  content   String   @db.Text
+  isOfficial Boolean @default(false) @map("is_official")
+  isHidden  Boolean  @default(false) @map("is_hidden")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([issueId, createdAt])
+  @@map("issue_comments")
+}
+
+model IssueSupport {
+  id        String   @id @default(uuid()) @db.Uuid
+  issueId   String   @map("issue_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([issueId, userId])
+  @@map("issue_supports")
+}
+
+model IssueFollow {
+  id        String   @id @default(uuid()) @db.Uuid
+  issueId   String   @map("issue_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([issueId, userId])
+  @@map("issue_follows")
+}
+
+model IssueDuplicate {
+  id          String   @id @default(uuid()) @db.Uuid
+  parentId    String   @map("parent_id") @db.Uuid
+  childId     String   @map("child_id") @db.Uuid
+  reason      String?  @db.Text
+  linkedBy    String   @map("linked_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  parent      Issue    @relation("DuplicateParent", fields: [parentId], references: [id])
+  child       Issue    @relation("DuplicateChild", fields: [childId], references: [id])
+
+  @@unique([parentId, childId])
+  @@map("issue_duplicates")
+}
+
+// ============================================
+// GRIEVANCES (Formal complaints with SLA)
+// ============================================
+
+enum GrievanceStatus {
+  submitted
+  under_review
+  in_progress
+  resolved
+  rejected
+  escalated
+  reopened
+}
+
+enum GrievancePriority {
+  low
+  medium
+  high
+  critical
+}
+
+model Grievance {
+  id           String            @id @default(uuid()) @db.Uuid
+  trackingId   String            @unique @map("tracking_id") @db.VarChar(20)
+  citizenId    String            @map("citizen_id") @db.Uuid
+  departmentId String?           @map("department_id") @db.Uuid
+  category     String            @db.VarChar(50)
+  subject      String            @db.VarChar(255)
+  description  String            @db.Text
+  location     String?           @db.VarChar(255)
+  status       GrievanceStatus   @default(submitted)
+  priority     GrievancePriority @default(medium)
+  slaDeadline  DateTime?         @map("sla_deadline")
+  resolvedAt   DateTime?         @map("resolved_at")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  department   Department?       @relation(fields: [departmentId], references: [id])
+  responses    GrievanceResponse[]
+
+  @@index([status, slaDeadline])
+  @@index([citizenId])
+  @@index([departmentId, status])
+  @@map("grievances")
+}
+
+model GrievanceResponse {
+  id           String          @id @default(uuid()) @db.Uuid
+  grievanceId  String          @map("grievance_id") @db.Uuid
+  responderId  String          @map("responder_id") @db.Uuid
+  message      String          @db.Text
+  statusChange GrievanceStatus? @map("status_change")
+  createdAt    DateTime        @default(now()) @map("created_at")
+
+  grievance    Grievance       @relation(fields: [grievanceId], references: [id], onDelete: Cascade)
+  responder    User            @relation(fields: [responderId], references: [id])
+
+  @@map("grievance_responses")
+}
+
+// ============================================
+// TASKS (Department work items from issues)
+// ============================================
+
+enum TaskStatus {
+  pending
+  assigned
+  in_progress
+  on_hold
+  completed
+  cancelled
+  overdue
+}
+
+model Task {
+  id           String     @id @default(uuid()) @db.Uuid
+  title        String     @db.VarChar(255)
+  description  String?    @db.Text
+  status       TaskStatus @default(pending)
+  
+  issueId      String?    @map("issue_id") @db.Uuid
+  departmentId String?    @map("department_id") @db.Uuid
+  assigneeId   String?    @map("assignee_id") @db.Uuid
+  createdById  String     @map("created_by_id") @db.Uuid
+  
+  dueDate      DateTime?  @map("due_date")
+  completedAt  DateTime?  @map("completed_at")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  issue        Issue?     @relation(fields: [issueId], references: [id])
+  department   Department? @relation(fields: [departmentId], references: [id])
+  assignee     User?      @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdBy    User       @relation("TaskCreator", fields: [createdById], references: [id])
+  
+  events       TaskEvent[]
+
+  @@index([status, dueDate])
+  @@index([departmentId, status])
+  @@index([assigneeId])
+  @@map("tasks")
+}
+
+model TaskEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  taskId     String   @map("task_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  action     String   @db.VarChar(50)
+  fromStatus String?  @map("from_status") @db.VarChar(30)
+  toStatus   String?  @map("to_status") @db.VarChar(30)
+  note       String?  @db.Text
+  isPublic   Boolean  @default(true) @map("is_public")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@index([taskId, createdAt])
+  @@map("task_events")
+}
+
+// ============================================
+// TENDERS
+// ============================================
+
+enum TenderStatus {
+  draft
+  published
+  bidding
+  evaluation
+  awarded
+  completed
+  cancelled
+}
+
+model Tender {
+  id           String       @id @default(uuid()) @db.Uuid
+  title        String       @db.VarChar(255)
+  description  String       @db.Text
+  departmentId String       @map("department_id") @db.Uuid
+  category     String       @db.VarChar(100)
+  budgetAmountPaise BigInt  @map("budget_amount_paise")
+  status       TenderStatus @default(draft)
+  deadline     DateTime
+  
+  awardedBidId String?      @unique @map("awarded_bid_id") @db.Uuid
+  awardReason  String?      @map("award_reason") @db.Text
+  
+  createdById  String       @map("created_by_id") @db.Uuid
+  publishedAt  DateTime?    @map("published_at")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  department   Department   @relation(fields: [departmentId], references: [id])
+  createdBy    User         @relation(fields: [createdById], references: [id])
+  awardedBid   TenderBid?   @relation("AwardedBid", fields: [awardedBidId], references: [id])
+  
+  bids         TenderBid[]  @relation("TenderBids")
+  documents    TenderDocument[]
+
+  @@index([status, deadline])
+  @@index([departmentId])
+  @@map("tenders")
+}
+
+model TenderBid {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenderId    String   @map("tender_id") @db.Uuid
+  bidderId    String   @map("bidder_id") @db.Uuid
+  companyName String   @map("company_name") @db.VarChar(255)
+  amountPaise BigInt   @map("amount_paise")
+  proposal    String   @db.Text
+  submittedAt DateTime @default(now()) @map("submitted_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tender      Tender   @relation("TenderBids", fields: [tenderId], references: [id], onDelete: Cascade)
+  bidder      User     @relation(fields: [bidderId], references: [id])
+  awardedTender Tender? @relation("AwardedBid")
+
+  @@unique([tenderId, bidderId])
+  @@map("tender_bids")
+}
+
+model TenderDocument {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenderId    String   @map("tender_id") @db.Uuid
+  title       String   @db.VarChar(255)
+  filename    String   @db.VarChar(255)
+  storagePath String   @map("storage_path") @db.VarChar(500)
+  sizeBytes   Int      @map("size_bytes")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tender      Tender   @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+
+  @@map("tender_documents")
+}
+
+// ============================================
+// BUDGETS
+// ============================================
+
+model BudgetAllocation {
+  id           String   @id @default(uuid()) @db.Uuid
+  departmentId String   @map("department_id") @db.Uuid
+  fiscalYear   String   @map("fiscal_year") @db.VarChar(9)
+  category     String   @db.VarChar(100)
+  allocatedPaise BigInt @map("allocated_paise")
+  spentPaise   BigInt   @default(0) @map("spent_paise")
+  source       String?  @db.VarChar(255)
+  lastUpdated  DateTime @default(now()) @map("last_updated")
+  createdById  String   @map("created_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  department   Department @relation(fields: [departmentId], references: [id])
+  createdBy    User       @relation("BudgetCreator", fields: [createdById], references: [id])
+  
+  expenditures BudgetExpenditure[]
+
+  @@unique([departmentId, fiscalYear, category])
+  @@index([fiscalYear])
+  @@map("budget_allocations")
+}
+
+model BudgetExpenditure {
+  id           String   @id @default(uuid()) @db.Uuid
+  allocationId String   @map("allocation_id") @db.Uuid
+  amountPaise  BigInt   @map("amount_paise")
+  description  String   @db.Text
+  vendor       String?  @db.VarChar(255)
+  receiptUrl   String?  @map("receipt_url") @db.VarChar(500)
+  spentOn      DateTime @map("spent_on") @db.Date
+  createdById  String   @map("created_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  allocation   BudgetAllocation @relation(fields: [allocationId], references: [id], onDelete: Cascade)
+  createdBy    User             @relation("ExpenditureCreator", fields: [createdById], references: [id])
+
+  @@map("budget_expenditures")
+}
+
+// ============================================
+// POLLS (Civic initiatives)
+// ============================================
+
+enum PollStatus {
+  draft
+  active
+  closed
+  cancelled
+}
+
+model Poll {
+  id          String     @id @default(uuid()) @db.Uuid
+  title       String     @db.VarChar(255)
+  description String     @db.Text
+  status      PollStatus @default(draft)
+  startsAt    DateTime   @map("starts_at")
+  endsAt      DateTime   @map("ends_at")
+  isPublic    Boolean    @default(true) @map("is_public")
+  createdById String     @map("created_by_id") @db.Uuid
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  createdBy   User       @relation(fields: [createdById], references: [id])
+  options     PollOption[]
+  votes       PollVote[]
+
+  @@index([status, endsAt])
+  @@map("polls")
+}
+
+model PollOption {
+  id     String @id @default(uuid()) @db.Uuid
+  pollId String @map("poll_id") @db.Uuid
+  label  String @db.VarChar(255)
+  votes  Int    @default(0)
+
+  poll       Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  pollVotes  PollVote[]
+
+  @@map("poll_options")
+}
+
+model PollVote {
+  id       String   @id @default(uuid()) @db.Uuid
+  pollId   String   @map("poll_id") @db.Uuid
+  optionId String   @map("option_id") @db.Uuid
+  userId   String   @map("user_id") @db.Uuid
+  votedAt  DateTime @default(now()) @map("voted_at")
+
+  poll     Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option   PollOption @relation(fields: [optionId], references: [id])
+  user     User       @relation(fields: [userId], references: [id])
+
+  @@unique([pollId, userId])
+  @@map("poll_votes")
+}
+
+// ============================================
+// MODERATION
+// ============================================
+
+enum ModerationAction {
+  approve
+  reject
+  flag
+  hide
+  merge
+  escalate
+}
+
+model ModerationDecision {
+  id           String           @id @default(uuid()) @db.Uuid
+  entityType   String           @map("entity_type") @db.VarChar(50)
+  entityId     String           @map("entity_id") @db.Uuid
+  action       ModerationAction
+  reason       String?          @db.Text
+  moderatorId  String           @map("moderator_id") @db.Uuid
+  issueId      String?          @map("issue_id") @db.Uuid
+  createdAt    DateTime         @default(now()) @map("created_at")
+
+  moderator    User             @relation(fields: [moderatorId], references: [id])
+  issue        Issue?           @relation(fields: [issueId], references: [id])
+
+  @@index([entityType, entityId])
+  @@map("moderation_decisions")
+}
+
+// ============================================
+// AUDIT LOG (Hash Chain)
+// ============================================
+
+model AuditEvent {
+  id         BigInt   @id @default(autoincrement())
+  timestamp  DateTime @default(now())
+  userId     String?  @map("user_id") @db.Uuid
+  action     String   @db.VarChar(80)
+  entityType String   @map("entity_type") @db.VarChar(50)
+  entityId   String   @map("entity_id") @db.VarChar(50)
+  details    Json?
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  prevHash   String   @map("prev_hash") @db.VarChar(64)
+  hash       String   @db.VarChar(64)
+
+  user       User?    @relation(fields: [userId], references: [id])
+  issue      Issue?   @relation(fields: [entityId], references: [id], map: "audit_events_issue_fk")
+
+  @@index([entityType, entityId])
+  @@index([timestamp])
+  @@map("audit_events")
+}

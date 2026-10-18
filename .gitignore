@@ -3,6 +3,11 @@ node_modules/
 
 # Environment variables (NEVER push this to GitHub)
 .env
+.env.*
+!.env.example
+
+# Uploaded files
+/uploads/
 
 # System files
 .DS_Store
@@ -11,3 +16,7 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Test output
+coverage/
+.nyc_output/
