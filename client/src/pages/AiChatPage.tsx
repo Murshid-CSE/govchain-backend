@@ -124,7 +124,7 @@ export const AiChatPage: React.FC = () => {
           </p>
         </div>
         <div className="inline-flex items-center px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-semibold">
-          Deterministic Rule Engine &amp; AI
+          Guided Issue Triage (Rule-Based Heuristic Engine)
         </div>
       </div>
 

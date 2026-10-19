@@ -1,0 +1,34 @@
+services:
+  # GovChain Backend REST API
+  - type: web
+    name: govchain-api
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && npx prisma generate
+    startCommand: node server.js
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: govchain-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 24h
+      - key: CORS_ORIGIN
+        sync: false
+
+databases:
+  # Note: Render Free PostgreSQL expires after 30 days. For production,
+  # use Neon.tech or a paid durable PostgreSQL instance as documented in docs/DEPLOYMENT.md.
+  - name: govchain-db
+    plan: free
+    region: oregon
+    databaseName: govchain_prod
+    user: govchain_user

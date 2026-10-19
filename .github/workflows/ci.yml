@@ -8,6 +8,7 @@ on:
 
 jobs:
   test:
+    name: Backend API & Database Tests
     runs-on: ubuntu-latest
 
     services:
@@ -32,15 +33,47 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install backend dependencies
         run: npm ci
 
-      - name: Run test suite
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Apply Prisma migrations to CI database
+        env:
+          DATABASE_URL: postgresql://govchain_user:govchain_dev_password@localhost:5432/govchain_test?schema=public
+        run: npx prisma migrate deploy
+
+      - name: Run backend & database integration tests
         env:
           DATABASE_URL: postgresql://govchain_user:govchain_dev_password@localhost:5432/govchain_test?schema=public
           JWT_SECRET: ci_secret_key_govchain_test_environment_32_chars_long
           NODE_ENV: test
         run: npm test
+
+      - name: Install frontend dependencies
+        run: npm --prefix client ci
+
+      - name: Production frontend build & typecheck
+        run: npm run build
+
+      - name: Install Playwright Chromium with system dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Run real browser E2E tests (Playwright Chromium)
+        env:
+          DATABASE_URL: postgresql://govchain_user:govchain_dev_password@localhost:5432/govchain_test?schema=public
+          JWT_SECRET: ci_secret_key_govchain_test_environment_32_chars_long
+          NODE_ENV: test
+        run: |
+          npm run seed
+          node server.js &
+          npm run client:dev &
+          sleep 5
+          npm run test:e2e
