@@ -62,15 +62,24 @@ Never commit real values to version control. Set these variables strictly within
 
 ## 4. Controlled Production Release Procedure
 
-### Step 1: Provision Durable Database
-1. Provision a PostgreSQL instance with TLS enabled on [Neon.tech](https://neon.tech), AWS RDS, or Supabase.
-2. Ensure connection pooling is enabled and copy the pooled connection URI.
+### Step 1: Provision Durable Database (Neon Staging)
+1. Provision a PostgreSQL instance with TLS enabled on [Neon.tech](https://neon.tech) (offers 1 GB free storage per project as of October 2026).
+2. Note both connection strings provided by Neon:
+   - **Direct Connection URL** (port 5432, without `-pooler`): Used strictly for running Prisma schema migrations.
+   - **Pooled Connection URL** (with `-pooler`): Used for backend application runtime on Render/Railway.
 
 ### Step 2: Apply Migrations (Controlled Release Step)
-Run the migration deploy command targeting the production database. Do **not** use `prisma db push` or `prisma migrate dev` against production:
+Run the migration deploy command targeting the staging database. Do **not** use `prisma db push` or `prisma migrate dev` against staging or production:
 
+**Using the Guarded PowerShell Helper (Recommended)**:
+```powershell
+.\migrate-staging.ps1
+```
+This script prompts for the direct Neon staging connection URL with masked input (no echoing), verifies TLS and non-pooled endpoint configuration, requires explicit confirmation, and executes `npx prisma migrate deploy` followed by optional synthetic baseline seeding.
+
+**Manual Command**:
 ```bash
-npx prisma migrate deploy
+DATABASE_URL="postgresql://user:pass@ep-xyz.us-east-2.aws.neon.tech/govchain-staging?sslmode=require" npx prisma migrate deploy
 ```
 
 ### Step 3: Deploy Backend Service

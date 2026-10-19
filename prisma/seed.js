@@ -5,6 +5,11 @@ const { computeAuditHash, GENESIS_HASH } = require('../src/utils/hashChain');
 const prisma = new PrismaClient();
 
 async function main() {
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_STAGING_SEED !== 'true') {
+    console.error('⛔ Refusing to execute destructive demo seed in production without ALLOW_STAGING_SEED=true.');
+    process.exit(1);
+  }
+
   console.log('🌱 Starting GovChain database seed (DEMO/DEVELOPMENT DATA)...');
 
   // Clear existing demo data in reverse relation order
