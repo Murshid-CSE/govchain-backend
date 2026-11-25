@@ -43,6 +43,7 @@ export const TransparencyPage: React.FC = () => {
 
     try {
       if (activeTab === 'audit') {
+        setAuditResult(null);
         const res = await api.get<AuditVerificationResult>('/audit/verify');
         if (res.data) setAuditResult(res.data);
       } else if (activeTab === 'tenders') {

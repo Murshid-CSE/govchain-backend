@@ -1,0 +1,34 @@
+x-api: &api
+  build: .
+  restart: unless-stopped
+  environment:
+    DATABASE_URL: ${DATABASE_URL:?Set the pooled PostgreSQL URL reachable from containers}
+    JWT_SECRET: ${JWT_SECRET:?Set the shared signing secret}
+    CORS_ORIGIN: ${CORS_ORIGIN:?Set the frontend origin}
+    TRUST_PROXY_HOPS: '1'
+    UPLOAD_DIR: /app/uploads
+  volumes:
+    - attachments:/app/uploads
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+
+services:
+  migrate:
+    build: .
+    command: ["./node_modules/.bin/prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: ${MIGRATION_DATABASE_URL:?Set the direct migration connection}
+  api1: *api
+  api2: *api
+  gateway:
+    image: haproxy:3.2-alpine
+    restart: unless-stopped
+    depends_on: [api1, api2]
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./deploy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+
+volumes:
+  attachments:

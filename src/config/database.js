@@ -26,7 +26,7 @@ try {
     {
       get: (target, prop) => {
         if (prop === '$disconnect') return async () => {};
-        if (prop === '$queryRaw') return async () => [];
+        if (prop === '$queryRaw') return async () => { throw new Error('Database client unavailable'); };
         return new Proxy(
           {},
           {

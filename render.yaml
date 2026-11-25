@@ -7,7 +7,7 @@ services:
     region: oregon
     buildCommand: npm ci && npx prisma generate
     startCommand: node server.js
-    healthCheckPath: /api/v1/health
+    healthCheckPath: /api/v1/health/ready
     envVars:
       - key: NODE_ENV
         value: production
@@ -21,3 +21,13 @@ services:
         value: 24h
       - key: CORS_ORIGIN
         sync: false # Exact frontend origin only (never wildcard *), e.g. https://govchain.vercel.app
+      - key: REQUIRE_OBJECT_STORAGE
+        value: "true"
+      - key: AWS_ENDPOINT_URL_S3
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        value: us-east-2

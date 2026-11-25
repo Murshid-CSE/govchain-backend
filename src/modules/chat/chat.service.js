@@ -70,6 +70,7 @@ async function findPotentialDuplicates(category, text) {
 
     const existingIssues = await prisma.issue.findMany({
       where: {
+        isPublic: true,
         category,
         status: { notIn: ['resolved', 'closed', 'rejected'] },
         OR: words.map((word) => ({

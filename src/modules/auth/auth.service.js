@@ -12,7 +12,7 @@ function generateToken(user) {
       role: user.role,
       departmentId: user.departmentId,
     },
-    process.env.JWT_SECRET || 'default_secret_please_set_in_production_32chars',
+    process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
   );
 }
@@ -65,7 +65,7 @@ async function login(email, password, ipAddress = null) {
     include: { department: { select: { id: true, name: true, slug: true } } },
   });
 
-  if (!user) {
+  if (!user || (process.env.NODE_ENV === 'production' && user.email.endsWith('@govchain.local'))) {
     const error = new Error('Invalid email or password');
     error.statusCode = 401;
     throw error;

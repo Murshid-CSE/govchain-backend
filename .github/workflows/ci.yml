@@ -11,6 +11,10 @@ jobs:
     name: Backend API & Database Tests
     runs-on: ubuntu-latest
 
+    env:
+      DATABASE_URL: postgresql://govchain_user:govchain_dev_password@localhost:5432/govchain_test?schema=public
+      GOVCHAIN_TEST_DATABASE_URL: postgresql://govchain_user:govchain_dev_password@localhost:5432/govchain_test?schema=public
+
     services:
       postgres:
         image: postgres:16-alpine
@@ -55,7 +59,7 @@ jobs:
           DATABASE_URL: postgresql://govchain_user:govchain_dev_password@localhost:5432/govchain_test?schema=public
           JWT_SECRET: ci_secret_key_govchain_test_environment_32_chars_long
           NODE_ENV: test
-        run: npm test
+        run: node --test tests/api.test.js tests/chatEngine.test.js tests/database_integration.test.js tests/hashChain.test.js tests/trackingId.test.js
 
       - name: Install frontend dependencies
         run: npm --prefix client ci
@@ -77,3 +81,34 @@ jobs:
           npm run client:dev &
           sleep 5
           npm run test:e2e
+
+  replicas:
+    name: API gateway and failover
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:disposable@replica-db:5432/govchain_test
+      MIGRATION_DATABASE_URL: postgresql://postgres:disposable@replica-db:5432/govchain_test
+      JWT_SECRET: disposable_ci_only_signing_key_for_replica_tests
+      CORS_ORIGIN: http://localhost:5173
+      COMPOSE_FILE: compose.replicas.yml
+      COMPOSE_PROJECT_NAME: govchain-ci
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start disposable database on the Compose network
+        run: |
+          docker compose create --build
+          docker run -d --name replica-db --network govchain-ci_default -e POSTGRES_PASSWORD=disposable -e POSTGRES_DB=govchain_test postgres:16-alpine
+          timeout 60 bash -c 'until docker exec replica-db pg_isready -U postgres; do sleep 1; done'
+      - name: Verify both replicas and service after loss of one replica
+        run: |
+          docker compose up -d
+          curl --retry 30 --retry-all-errors --retry-delay 2 -fsS http://127.0.0.1:8080/api/v1/health/ready
+          for service in api1 api2; do
+            docker compose exec -T "$service" node -e "fetch('http://127.0.0.1:5000/api/v1/health/ready').then(r=>process.exit(r.ok?0:1))"
+          done
+          for i in {1..6}; do curl -fsS http://127.0.0.1:8080/api/v1/health >/dev/null; done
+          for service in api1 api2; do docker compose logs gateway | grep -q "govchain/$service"; done
+          docker compose stop api1
+          curl --retry 10 --retry-all-errors --retry-delay 2 -fsS http://127.0.0.1:8080/api/v1/audit/verify
+      - if: failure()
+        run: docker compose logs --tail=60

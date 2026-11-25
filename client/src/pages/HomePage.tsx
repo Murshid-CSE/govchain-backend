@@ -27,7 +27,7 @@ export const HomePage: React.FC = () => {
     totalIssues: 0,
     resolvedIssues: 0,
     departmentsCount: 0,
-    auditValid: true,
+    auditValid: null as boolean | null,
   });
 
   useEffect(() => {
@@ -35,23 +35,20 @@ export const HomePage: React.FC = () => {
       setIsLoading(true);
       setError(null);
       try {
-        // Fetch recent issues
-        const issuesRes = await api.get<{ issues: Issue[] }>('/issues?limit=6');
+        const [issuesRes, deptsRes, auditRes] = await Promise.all([
+          api.get<{ issues: Issue[] }>('/issues?limit=6'),
+          api.get<{ departments: unknown[] }>('/departments'),
+          api.get<{ valid: boolean }>('/audit/verify').catch(() => null),
+        ]);
         const fetchedIssues = issuesRes.data?.issues || [];
-        setIssues(fetchedIssues);
-
-        // Fetch departments
-        const deptsRes = await api.get<{ departments: unknown[] }>('/departments');
         const deptsCount = deptsRes.data?.departments?.length || 0;
-
-        // Fetch audit status
-        const auditRes = await api.get<{ valid: boolean; totalEvents: number }>('/audit/verify');
+        setIssues(fetchedIssues);
 
         setStats({
           totalIssues: issuesRes.meta?.total || fetchedIssues.length,
           resolvedIssues: fetchedIssues.filter((i) => i.status === 'resolved').length,
           departmentsCount: deptsCount,
-          auditValid: auditRes.data?.valid ?? true,
+          auditValid: auditRes?.data?.valid ?? null,
         });
       } catch (err: any) {
         setError(err.message || 'Unable to connect to live GovChain services.');
@@ -140,7 +137,7 @@ export const HomePage: React.FC = () => {
             <div className="text-2xl font-bold text-slate-900">
               {isLoading ? '...' : stats.resolvedIssues}
             </div>
-            <span className="text-xs text-slate-500">Completed public works</span>
+            <span className="text-xs text-slate-500">Resolved among recent reports</span>
           </div>
 
           <div className="civic-card-3d p-5 rounded-2xl border border-slate-200">
@@ -148,11 +145,11 @@ export const HomePage: React.FC = () => {
               <span className="text-xs font-semibold uppercase tracking-wider">Audit Integrity</span>
               <Lock className="w-4 h-4 text-teal-600" />
             </div>
-            <div className="text-2xl font-bold text-emerald-700 flex items-center gap-1.5">
-              <span>{stats.auditValid ? 'Verified' : 'Check'}</span>
-              <ShieldCheck className="w-5 h-5 text-emerald-600 inline" />
+            <div className="text-2xl font-bold text-slate-900 flex items-center gap-1.5">
+              <span>{isLoading ? 'Checking…' : stats.auditValid === null ? 'Unavailable' : stats.auditValid ? 'Verified' : 'Discrepancy'}</span>
+              {stats.auditValid === true && <ShieldCheck className="w-5 h-5 text-emerald-600 inline" />}
             </div>
-            <span className="text-xs text-slate-500">SHA-256 ledger intact</span>
+            <span className="text-xs text-slate-500">SHA-256 ledger verification</span>
           </div>
         </div>
       </section>
@@ -259,7 +256,7 @@ export const HomePage: React.FC = () => {
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-2">
-              <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm">
+              <div className="w-8 h-8 rounded-lg bg-emerald-100 text-slate-900 flex items-center justify-center font-bold text-sm">
                 3
               </div>
               <h4 className="font-bold text-slate-900 text-sm">Public Progress</h4>
