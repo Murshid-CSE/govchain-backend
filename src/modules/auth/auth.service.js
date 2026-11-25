@@ -12,7 +12,7 @@ function generateToken(user) {
       role: user.role,
       departmentId: user.departmentId,
     },
-    process.env.JWT_SECRET || 'default_secret_please_set_in_production_32chars',
+    process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
   );
 }

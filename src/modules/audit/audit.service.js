@@ -3,28 +3,20 @@ const { verifyChain } = require('../../utils/hashChain');
 const { serializeBigInt } = require('../../utils/serializer');
 
 async function runChainVerification() {
+  let events;
   try {
-    const events = await prisma.auditEvent.findMany({
-      orderBy: { id: 'asc' },
-    });
-
-    const verification = verifyChain(events);
-
-    return {
-      ...verification,
-      totalEvents: events ? events.length : 0,
-      verifiedAt: new Date().toISOString(),
-    };
-  } catch (err) {
-    // Fallback when database is empty or offline
-    return {
-      valid: true,
-      brokenAt: null,
-      message: 'Audit ledger is empty or offline. 0 records verified.',
-      totalEvents: 0,
-      verifiedAt: new Date().toISOString(),
-    };
+    events = await prisma.auditEvent.findMany({ orderBy: { id: 'asc' } });
+  } catch (cause) {
+    const error = new Error('Audit verification is unavailable', { cause });
+    error.statusCode = 503;
+    throw error;
   }
+
+  return {
+    ...verifyChain(events),
+    totalEvents: events.length,
+    verifiedAt: new Date().toISOString(),
+  };
 }
 
 async function getEntityAuditTrail(entityType, entityId) {
@@ -35,8 +27,9 @@ async function getEntityAuditTrail(entityType, entityId) {
         entityId: String(entityId),
       },
       orderBy: { timestamp: 'asc' },
-      include: {
-        user: { select: { id: true, name: true, role: true } },
+      select: {
+        id: true, timestamp: true, action: true, entityType: true, entityId: true,
+        prevHash: true, hash: true,
       },
     });
 

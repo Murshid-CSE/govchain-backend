@@ -6,7 +6,8 @@ const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 
 // Use isolated test database on port 5433
-const TEST_DB_URL = 'postgresql://postgres@localhost:5433/govchain_test?schema=public';
+const TEST_DB_URL = process.env.GOVCHAIN_TEST_DATABASE_URL || 'postgresql://postgres@localhost:5433/govchain_test?schema=public';
+if (new URL(TEST_DB_URL).pathname !== '/govchain_test') throw new Error('Expected isolated govchain_test database');
 process.env.DATABASE_URL = TEST_DB_URL;
 process.env.JWT_SECRET = 'test_secret_key_at_least_32_characters_long_for_tests';
 
@@ -431,6 +432,17 @@ describe('Live PostgreSQL Database Integration Tests', () => {
   });
 
   // ----------------------------------------------------
+  it('preserves the chain when independent requests append concurrently', async () => {
+    const { recordAuditEvent } = require('../src/middleware/auditLogger');
+    await Promise.all(Array.from({ length: 8 }, (_, index) =>
+      recordAuditEvent({ action: 'CONCURRENT_TEST', entityType: 'test', entityId: String(index) })
+    ));
+    const res = await fetch(`${baseUrl}/api/v1/audit/verify`);
+    const body = await res.json();
+    assert.strictEqual(body.data.valid, true);
+    assert.ok(body.data.totalEvents >= 8);
+  });
+
   // 8. Database Transaction Behavior & Rollback
   // ----------------------------------------------------
   it('8.1 should rollback database state when a transaction fails mid-way', async () => {

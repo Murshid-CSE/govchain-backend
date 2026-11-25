@@ -11,6 +11,10 @@ jobs:
     name: Backend API & Database Tests
     runs-on: ubuntu-latest
 
+    env:
+      DATABASE_URL: postgresql://govchain_user:govchain_dev_password@localhost:5432/govchain_test?schema=public
+      GOVCHAIN_TEST_DATABASE_URL: postgresql://govchain_user:govchain_dev_password@localhost:5432/govchain_test?schema=public
+
     services:
       postgres:
         image: postgres:16-alpine
@@ -55,7 +59,7 @@ jobs:
           DATABASE_URL: postgresql://govchain_user:govchain_dev_password@localhost:5432/govchain_test?schema=public
           JWT_SECRET: ci_secret_key_govchain_test_environment_32_chars_long
           NODE_ENV: test
-        run: npm test
+        run: node --test tests/api.test.js tests/chatEngine.test.js tests/database_integration.test.js tests/hashChain.test.js tests/trackingId.test.js
 
       - name: Install frontend dependencies
         run: npm --prefix client ci

@@ -118,3 +118,7 @@ After deployment, verify the live deployment by executing these checks against t
    - Verify landing page statistics load.
    - Verify Leaflet map renders with OpenStreetMap tiles.
    - Verify navigation to `/transparency`, `/issues`, and `/chat`.
+
+## Checking release health
+
+Route traffic only to instances returning HTTP 200 from `/api/v1/health/ready`. The liveness endpoint only checks the process. A failed ledger read returns HTTP 503 from `/api/v1/audit/verify`. A successfully read empty ledger returns HTTP 200 with zero events. Audit appends acquire a PostgreSQL transaction-scoped advisory lock shared by all API replicas.

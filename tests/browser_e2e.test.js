@@ -27,6 +27,10 @@ describe('GovChain Real Browser End-to-End Suite (Chromium)', () => {
     }
 
     // 3. Launch browser using native Chrome or Edge channel
+    if (process.env.CI) {
+      browser = await chromium.launch({ headless: true });
+      return;
+    }
     try {
       browser = await chromium.launch({ channel: 'chrome', headless: true });
     } catch (chromeErr) {

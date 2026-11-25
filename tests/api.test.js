@@ -1,6 +1,8 @@
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert');
 const http = require('http');
+// Exercise the HTTP contract with the database unavailable in this test process.
+process.env.DATABASE_URL = 'postgresql://postgres@127.0.0.1:1/unavailable?connect_timeout=1';
 const app = require('../src/app');
 
 let server;
@@ -43,13 +45,12 @@ describe('API Integration Tests', () => {
     assert.ok(typeof body.data.uptime === 'number');
   });
 
-  it('GET /api/v1/audit/verify should return 200 with hash-chain integrity verification', async () => {
+  it('returns 503 without an integrity verdict when the ledger cannot be read', async () => {
     const res = await fetch(`${baseUrl}/api/v1/audit/verify`);
     const body = await res.json();
-
-    assert.strictEqual(res.status, 200);
-    assert.strictEqual(body.success, true);
-    assert.strictEqual(typeof body.data.valid, 'boolean');
+    assert.strictEqual(res.status, 503);
+    assert.strictEqual(body.success, false);
+    assert.strictEqual(body.data?.valid, undefined);
   });
 
   it('POST /api/v1/chat/intake should return 200 with draft synthesis and explainable priority', async () => {
