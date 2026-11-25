@@ -30,7 +30,7 @@ async function listIssues(req, res, next) {
 
 async function getIssueById(req, res, next) {
   try {
-    const issue = await issueService.getIssueById(req.params.id);
+    const issue = await issueService.getIssueById(req.params.id, req.user);
     return sendSuccess(res, {
       statusCode: 200,
       message: 'Issue retrieved successfully',
@@ -142,7 +142,7 @@ async function getMyIssues(req, res, next) {
 
 async function trackIssue(req, res, next) {
   try {
-    const issue = await issueService.trackIssue(req.params.trackingId);
+    const issue = await issueService.trackIssue(req.params.trackingId, req.user);
     return sendSuccess(res, {
       statusCode: 200,
       message: 'Issue tracking details retrieved',

@@ -14,7 +14,7 @@ const { authenticate, optionalAuth } = require('../../middleware/auth');
 router.get('/', optionalAuth, validate(listIssuesQuerySchema, 'query'), issueController.listIssues);
 
 // Public tracking by tracking ID (e.g., ISS-2026-00001)
-router.get('/track/:trackingId', issueController.trackIssue);
+router.get('/track/:trackingId', optionalAuth, issueController.trackIssue);
 
 // Citizen's own issues
 router.get('/my', authenticate, issueController.getMyIssues);

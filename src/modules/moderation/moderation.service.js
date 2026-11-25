@@ -52,7 +52,7 @@ async function moderateIssue(issueId, moderatorId, data, ipAddress = null) {
         status: nextStatus,
         departmentId: data.assignedDepartmentId || issue.departmentId,
         priority: data.priority || issue.priority,
-        isPublic: data.action !== 'hide',
+        isPublic: data.action === 'hide' ? false : issue.isPublic,
       },
       include: {
         department: { select: { id: true, name: true } },

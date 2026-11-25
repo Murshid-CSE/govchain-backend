@@ -91,9 +91,17 @@ async function listPublicIssues(filters = {}) {
   };
 }
 
-async function getIssueById(id) {
+function visibleIssues(viewer) {
+  if (!viewer) return { isPublic: true };
+  if (['admin', 'moderator'].includes(viewer.role)) return {};
+  const allowed = [{ isPublic: true }, { citizenId: viewer.id }];
+  if (viewer.role === 'official' && viewer.departmentId) allowed.push({ departmentId: viewer.departmentId });
+  return { OR: allowed };
+}
+
+async function getIssueById(id, viewer) {
   const issue = await prisma.issue.findUnique({
-    where: { id },
+    where: { id, ...visibleIssues(viewer) },
     include: {
       citizen: { select: { id: true, name: true } },
       department: { select: { id: true, name: true, slug: true } },
@@ -317,9 +325,9 @@ async function getMyIssues(userId, filters = {}) {
   };
 }
 
-async function trackIssue(trackingId) {
+async function trackIssue(trackingId, viewer) {
   const issue = await prisma.issue.findUnique({
-    where: { trackingId },
+    where: { trackingId, ...visibleIssues(viewer) },
     include: {
       department: { select: { id: true, name: true, slug: true } },
       tasks: {
