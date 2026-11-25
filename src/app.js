@@ -22,6 +22,7 @@ const moderationRoutes = require('./modules/moderation/moderation.routes');
 const uploadRoutes = require('./modules/uploads/upload.routes');
 
 const app = express();
+if (process.env.TRUST_PROXY_HOPS === '1') app.set('trust proxy', 1);
 
 // Security headers
 app.use(helmet());

@@ -122,3 +122,9 @@ After deployment, verify the live deployment by executing these checks against t
 ## Checking release health
 
 Route traffic only to instances returning HTTP 200 from `/api/v1/health/ready`. The liveness endpoint only checks the process. A failed ledger read returns HTTP 503 from `/api/v1/audit/verify`. A successfully read empty ledger returns HTTP 200 with zero events. Audit appends acquire a PostgreSQL transaction-scoped advisory lock shared by all API replicas.
+
+## Two API replicas on one Docker host
+
+Set `DATABASE_URL`, `MIGRATION_DATABASE_URL`, `CORS_ORIGIN`, and `JWT_SECRET` in the deployment environment. Both database URLs must point to the same GovChain database. The migration job runs once before the API instances start. Run `docker compose -f compose.replicas.yml up --build -d`. HAProxy listens on loopback port 8080, distributes traffic across the two healthy API instances and checks database readiness every three seconds. Only the gateway publishes a port. Terminate HTTPS at the hosting ingress. With a host-level proxy, configure source IP preservation before using per-client quotas.
+
+Both API processes share one attachment volume. Back up the volume alongside PostgreSQL and verify a restore to a separate host. This topology handles losing one API process. The gateway, volume and Docker host remain single failure domains. Before a multi-host rollout, move attachments to object storage, use a managed load balancer and centralize authentication and upload quotas. To exercise failover locally, stop api1, wait for two health-check intervals, check the gateway readiness endpoint, then start api1 again.
