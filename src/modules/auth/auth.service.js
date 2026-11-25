@@ -65,7 +65,7 @@ async function login(email, password, ipAddress = null) {
     include: { department: { select: { id: true, name: true, slug: true } } },
   });
 
-  if (!user) {
+  if (!user || (process.env.NODE_ENV === 'production' && user.email.endsWith('@govchain.local'))) {
     const error = new Error('Invalid email or password');
     error.statusCode = 401;
     throw error;

@@ -128,3 +128,11 @@ Route traffic only to instances returning HTTP 200 from `/api/v1/health/ready`. 
 Set `DATABASE_URL`, `MIGRATION_DATABASE_URL`, `CORS_ORIGIN`, and `JWT_SECRET` in the deployment environment. Both database URLs must point to the same GovChain database. The migration job runs once before the API instances start. Run `docker compose -f compose.replicas.yml up --build -d`. HAProxy listens on loopback port 8080, distributes traffic across the two healthy API instances and checks database readiness every three seconds. Only the gateway publishes a port. Terminate HTTPS at the hosting ingress. With a host-level proxy, configure source IP preservation before using per-client quotas.
 
 Both API processes share one attachment volume. Back up the volume alongside PostgreSQL and verify a restore to a separate host. This topology handles losing one API process. The gateway, volume and Docker host remain single failure domains. Before a multi-host rollout, move attachments to object storage, use a managed load balancer and centralize authentication and upload quotas. To exercise failover locally, stop api1, wait for two health-check intervals, check the gateway readiness endpoint, then start api1 again.
+
+### Free staging deployment
+
+The Render blueprint uses the existing Neon database and public-read uploads bucket. Set the database and object-storage credentials in Render. Restrict this staging bucket to synthetic or explicitly public attachments. Uploaded objects use unique keys, download disposition and an extension derived from their allowed MIME type. The API returns the object URL and removes its temporary disk copy. Existing local development installations can continue using disk storage. GovChain still authenticates its API requests with its own JWT implementation. The Neon Auth and hello-function declarations describe separately provisioned services.
+
+Point the Vercel client at the verified Render service URL through `VITE_API_BASE_URL` with suffix `/api/v1`. Set `CORS_ORIGIN` on Render to the deployed client origin. The free Render blueprint runs one API process. The separate Compose topology is for testing replica behavior.
+
+Production mode disables sign-in for the reserved govchain.local fixture domain. Local development and CI can use seeded demo accounts. The public deployment uses a fresh signing secret generated on Render.
