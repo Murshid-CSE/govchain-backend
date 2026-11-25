@@ -1,5 +1,10 @@
 # GovChain Backend — Civic Transparency Platform
 
+**[Open the staging demo](https://govchain-self.vercel.app)** · [Database readiness](https://govchain-api-ucoc.onrender.com/api/v1/health/ready) · [Release and failover checks](https://github.com/Murshid-CSE/govchain-backend/actions/runs/45544384995)
+
+This public demo runs on a free API instance that can sleep. Use public demonstration material for uploads. The two-replica HAProxy configuration and recovery procedure are documented in [the deployment guide](docs/DEPLOYMENT.md).
+
+
 [![GovChain CI](https://github.com/Murshid-CSE/govchain-backend/actions/workflows/ci.yml/badge.svg)](https://github.com/Murshid-CSE/govchain-backend/actions)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
 [![Node.js Version](https://img.shields.io/badge/Node.js-v20%2B-green.svg)](https://nodejs.org)
